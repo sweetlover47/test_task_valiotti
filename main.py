@@ -1,15 +1,27 @@
-import dash
 import pandas as pd
 
+import dash
 from dash import dcc
 from dash import html
-import plotly.express as px
 from dash.dependencies import Input, Output
+import plotly.express as px
 
+# clean data
 df = pd.read_csv('games.csv')
 df = df[(~df.isna()).all(axis='columns') & (df['Year_of_Release'] >= 2000)]
 df['Year_of_Release'] = pd.to_numeric(df['Year_of_Release'], downcast='integer')
 df['User_Score'] = pd.to_numeric(df['User_Score'], errors='coerce')
+
+# figures for dashboard
+grouped_df = df.groupby(['Year_of_Release', 'Platform']).size().reset_index(name='Count')
+stacked_games_year_platform = px.area(
+    grouped_df,
+    x='Year_of_Release',
+    y='Count',
+    color='Platform',
+    labels=dict(
+        Year_of_Release='Year'
+    ))
 
 user_critic_scores = px.scatter(
     df,
@@ -21,22 +33,16 @@ user_critic_scores = px.scatter(
         Critic_Score='Critic Score',
     ))
 
-grouped_df = df.groupby(['Year_of_Release', 'Platform']).size().reset_index(name='Count')
-
-stacked_games_year_platform = px.area(
-    grouped_df,
-    x='Year_of_Release',
-    y='Count',
-    color='Platform',
-    labels=dict(
-        Year_of_Release='Year'
-    ))
+# create dashboard
 
 app = dash.Dash(__name__)
 app.layout = html.Div(children=[
     html.Div(children=[
         html.H1(children='Game Analytics'),
-        html.P(children='Information about games by genre, rating and year')
+        html.P(children='''
+        View plot of released games by year and platform and scatter plot of players\' and critics\' ratings.
+        You can filter by genre, rating and year.
+        ''')
     ]),
     html.Div(children=[
         html.Div(children=[dcc.Dropdown(
@@ -55,8 +61,10 @@ app.layout = html.Div(children=[
         'display': 'flex',
         'flex-direction': 'row'
     }),
-    html.Br(),
-    html.Div(id='label-game-number'),
+    html.P(children=[
+        html.Div(id='label-game-number'),
+        html.Div()
+    ]),
     html.Div(children=[
         html.Div(children=[dcc.Graph(
             id='plot-stacked_games_year_platform',
@@ -150,7 +158,7 @@ def get_mask_by_filters(genre, rating, years):
     genre_mask = df['Genre'].isin(genre) if len(genre) > 0 else ~df['Genre'].isin([])
     rating_mask = df['Rating'].isin(rating) if len(rating) > 0 else ~df['Rating'].isin([])
     year_mask = df['Year_of_Release'].between(*years)
-    return genre_mask & rating_mask & year_mask;
+    return genre_mask & rating_mask & year_mask
 
 
 if __name__ == '__main__':
